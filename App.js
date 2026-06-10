@@ -1,5 +1,5 @@
-import MapScreen from './src/screens/MapScreen';
+import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
-  return <MapScreen />;
+  return <AppNavigator />;
 }
