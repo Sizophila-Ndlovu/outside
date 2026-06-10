@@ -43,3 +43,6 @@ yarn-error.*
 
 # Supabase client with credentials
 lib/supabase.js
+
+# I added a mapbox access token in app.json
+app.json
