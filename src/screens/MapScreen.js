@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '../../lib/supabase';
 import VibePopup from '../components/VibePopup';
 
-export default function MapScreen() {
+export default function MapScreen({ navigation }) {
   const [location, setLocation] = useState(null);
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -60,6 +60,12 @@ export default function MapScreen() {
           );
         })}
       </MapView>
+      <TouchableOpacity
+        style={styles.hostButton}
+        onPress={() => navigation.navigate('HostDashboard')}
+      >
+        <Text style={styles.hostButtonText}>+ go live</Text>
+      </TouchableOpacity>
       {selectedEvent && (
         <VibePopup
           event={selectedEvent}
@@ -76,5 +82,19 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  hostButton: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 32,
+  },
+  hostButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
   },
 });

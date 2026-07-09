@@ -4,6 +4,7 @@ import { View, ActivityIndicator } from 'react-native';
 import MapScreen from '../screens/MapScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import HostDashboardScreen from '../screens/HostDashboardScreen';
 import useAuth from '../hooks/useAuth';
 
 const Stack = createNativeStackNavigator();
@@ -23,7 +24,10 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="Map" component={MapScreen} />
+          <>
+            <Stack.Screen name="Map" component={MapScreen} />
+            <Stack.Screen name="HostDashboard" component={HostDashboardScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
