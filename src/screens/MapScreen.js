@@ -3,10 +3,12 @@ import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '../../lib/supabase';
+import VibePopup from '../components/VibePopup';
 
 export default function MapScreen() {
   const [location, setLocation] = useState(null);
   const [events, setEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   useEffect(() => {
     async function getLocation() {
@@ -53,11 +55,17 @@ export default function MapScreen() {
                 longitude: coords.coordinates[0],
               }}
               title={event.location_name}
-              description={event.title}
+              onPress={() => setSelectedEvent(event)}
             />
           );
         })}
       </MapView>
+      {selectedEvent && (
+        <VibePopup
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
     </View>
   );
 }
