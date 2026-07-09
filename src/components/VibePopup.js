@@ -16,10 +16,24 @@ const { height } = Dimensions.get('window');
 export default function VibePopup({ event, onClose }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [likedPosts, setLikedPosts] = useState(new Set());
+
+  useEffect(() => {
+    async function getCurrentUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) setUserId(session.user.id);
+    }
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (event) fetchPosts();
   }, [event]);
+
+  useEffect(() => {
+    if (userId && posts.length > 0) fetchUserLikes();
+  }, [userId, posts.length]);
 
   async function fetchPosts() {
     setLoading(true);
@@ -33,12 +47,49 @@ export default function VibePopup({ event, onClose }) {
     setLoading(false);
   }
 
-  async function likePost(postId, currentLikes) {
-    const { error } = await supabase
-      .from('posts')
-      .update({ like_count: currentLikes + 1 })
-      .eq('id', postId);
-    if (!error) {
+  async function fetchUserLikes() {
+    const postIds = posts.map(p => p.id);
+    const { data, error } = await supabase
+      .from('likes')
+      .select('post_id')
+      .eq('user_id', userId)
+      .in('post_id', postIds);
+    if (!error && data) {
+      setLikedPosts(new Set(data.map(l => l.post_id)));
+    }
+  }
+
+  async function toggleLike(postId, currentLikes) {
+    if (!userId) return;
+    const alreadyLiked = likedPosts.has(postId);
+
+    if (alreadyLiked) {
+      await supabase
+        .from('likes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('post_id', postId);
+      await supabase
+        .from('posts')
+        .update({ like_count: currentLikes - 1 })
+        .eq('id', postId);
+      setLikedPosts(prev => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
+      setPosts(posts.map(p =>
+        p.id === postId ? { ...p, like_count: currentLikes - 1 } : p
+      ));
+    } else {
+      await supabase
+        .from('likes')
+        .insert({ user_id: userId, post_id: postId });
+      await supabase
+        .from('posts')
+        .update({ like_count: currentLikes + 1 })
+        .eq('id', postId);
+      setLikedPosts(prev => new Set(prev).add(postId));
       setPosts(posts.map(p =>
         p.id === postId ? { ...p, like_count: currentLikes + 1 } : p
       ));
@@ -46,6 +97,7 @@ export default function VibePopup({ event, onClose }) {
   }
 
   function renderPost({ item }) {
+    const liked = likedPosts.has(item.id);
     return (
       <View style={styles.postCard}>
         <Image
@@ -58,9 +110,11 @@ export default function VibePopup({ event, onClose }) {
         ) : null}
         <TouchableOpacity
           style={styles.likeButton}
-          onPress={() => likePost(item.id, item.like_count)}
+          onPress={() => toggleLike(item.id, item.like_count)}
         >
-          <Text style={styles.likeText}>♥ {item.like_count}</Text>
+          <Text style={[styles.likeText, liked && styles.likeTextActive]}>
+            ♥ {item.like_count}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -155,7 +209,16 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   likeText: {
-    color: '#ff4d6d',
+    color: '#888',
     fontSize: 16,
+  },
+  likeTextActive: {
+    color: '#ff4d6d',
+  },
+  empty: {
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 48,
+    fontSize: 14,
   },
 });
