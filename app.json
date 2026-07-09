@@ -2,6 +2,7 @@
   "expo": {
     "name": "outside",
     "slug": "outside",
+    "scheme": "outside",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -31,6 +32,9 @@
         "projectId": "231b12a8-cecc-473f-8549-082baf3f1cb2"
       }
     },
-    "owner": "sizophila-ndlovu"
+    "owner": "sizophila-ndlovu",
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }
