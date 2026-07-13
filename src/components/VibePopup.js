@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { supabase } from '../../lib/supabase';
 
 const { height } = Dimensions.get('window');
@@ -18,6 +20,9 @@ export default function VibePopup({ event, onClose }) {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
   const [likedPosts, setLikedPosts] = useState(new Set());
+  const [checkedIn, setCheckedIn] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkinCount, setCheckinCount] = useState(event.live_checkin_count ?? 0);
 
   useEffect(() => {
     async function getCurrentUser() {
@@ -29,11 +34,16 @@ export default function VibePopup({ event, onClose }) {
 
   useEffect(() => {
     if (event) fetchPosts();
+    setCheckinCount(event.live_checkin_count ?? 0);
   }, [event]);
 
   useEffect(() => {
     if (userId && posts.length > 0) fetchUserLikes();
   }, [userId, posts.length]);
+
+  useEffect(() => {
+    if (userId && event) fetchCheckinStatus();
+  }, [userId, event]);
 
   async function fetchPosts() {
     setLoading(true);
@@ -56,6 +66,54 @@ export default function VibePopup({ event, onClose }) {
       .in('post_id', postIds);
     if (!error && data) {
       setLikedPosts(new Set(data.map(l => l.post_id)));
+    }
+  }
+
+  async function fetchCheckinStatus() {
+    const { data, error } = await supabase
+      .from('checkins')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('event_id', event.id)
+      .maybeSingle();
+    if (!error && data) setCheckedIn(true);
+  }
+
+  async function checkIn() {
+    if (!userId || checkingIn || checkedIn) return;
+    setCheckingIn(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Location needed', 'Turn on location access to check in.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({});
+      const { error } = await supabase
+        .from('checkins')
+        .insert({
+          user_id: userId,
+          event_id: event.id,
+          coordinates: `POINT(${loc.coords.longitude} ${loc.coords.latitude})`,
+        });
+      if (error) {
+        if (error.code === '23505') {
+          // Already checked in — treat as success, not a failure.
+          setCheckedIn(true);
+        } else {
+          Alert.alert(
+            "Can't check in",
+            "You need to be at the venue while it's live to check in."
+          );
+        }
+        return;
+      }
+      setCheckedIn(true);
+      setCheckinCount(prev => prev + 1);
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setCheckingIn(false);
     }
   }
 
@@ -132,6 +190,26 @@ export default function VibePopup({ event, onClose }) {
           <Text style={styles.closeButton}>✕</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.checkinRow}>
+        <Text style={styles.checkinCount}>
+          {checkinCount} {checkinCount === 1 ? 'person' : 'people'} here
+        </Text>
+        <TouchableOpacity
+          style={[styles.checkinButton, checkedIn && styles.checkinButtonDone]}
+          onPress={checkIn}
+          disabled={checkedIn || checkingIn}
+        >
+          {checkingIn ? (
+            <ActivityIndicator color="#000" size="small" />
+          ) : (
+            <Text style={[styles.checkinText, checkedIn && styles.checkinTextDone]}>
+              {checkedIn ? '✓ checked in' : 'check in'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <ActivityIndicator color="#fff" style={{ marginTop: 24 }} />
       ) : (
@@ -188,6 +266,37 @@ const styles = StyleSheet.create({
   closeButton: {
     color: '#888',
     fontSize: 20,
+  },
+  checkinRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkinCount: {
+    color: '#888',
+    fontSize: 13,
+  },
+  checkinButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  checkinButtonDone: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  checkinText: {
+    color: '#000',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  checkinTextDone: {
+    color: '#888',
   },
   postCard: {
     marginBottom: 16,
