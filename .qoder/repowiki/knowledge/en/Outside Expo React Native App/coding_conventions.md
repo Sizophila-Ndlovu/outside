@@ -1,0 +1,2 @@
+- The root exposes only `index.js` and `App.js`; all feature code is under `src/` and imported by relative path from `App.js`.
+- Navigation is centralized in a single `AppNavigator` component that wraps the entire UI tree.

@@ -1,0 +1,6 @@
+- Each screen/component is a default-exported function component that manages its own local UI state via `useState` and side effects via `useEffect`.
+- All server interactions go through the shared `../../lib/supabase` client using `.from('table').select/insert/update/delete(...)` queries rather than REST calls.
+- User-facing errors and validation failures are surfaced via React Native's `Alert.alert` instead of throwing exceptions.
+- Location features request foreground permissions with `Location.requestForegroundPermissionsAsync` before calling `getCurrentPositionAsync`, and guard execution on the returned status.
+- Geospatial coordinates are stored as PostGIS `POINT(long lat)` strings inserted into the `coordinates` column of `events` and `checkins` tables.
+- Authentication state is centralized in the `useAuth` hook, which subscribes to `supabase.auth.onAuthStateChange` and returns `{ user, loading }` consumed by the navigator to gate route visibility.

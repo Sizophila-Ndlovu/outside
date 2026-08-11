@@ -1,0 +1,1 @@
+React Native application source implementing authentication, a live-event map with markers, host dashboard for creating events and posting media, and an event detail popup with check-in and likes.

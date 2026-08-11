@@ -1,0 +1,1 @@
+React Native with `@react-navigation/native` + `native-stack`, `react-native-maps` for the event map, `expo-location` for geolocation and permission prompts, `expo-image-picker` for image selection, and Supabase client (`../../lib/supabase`) for auth, Realtime DB (`events`, `posts`, `likes`, `checkins`, `users`), and Storage.

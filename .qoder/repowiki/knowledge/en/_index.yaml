@@ -1,0 +1,35 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: main
+nodes_managed: true
+exported_at: "2026-08-11T13:16:40Z"
+modules:
+    "":
+        dir_name: Outside Expo React Native App
+        title: Outside Expo React Native App
+        scope:
+            - .gitignore
+            - package.json
+            - package-lock.json
+            - App.js
+            - index.js
+            - eas.json
+            - .claude/
+            - AGENTS.md
+            - CLAUDE.md
+            - LICENSE
+        source_files: []
+        children:
+            - app_source
+        depends_on: []
+        related_to: []
+    app_source:
+        dir_name: React Native App Source (Navigation, Screens & Auth)
+        title: React Native App Source (Navigation, Screens & Auth)
+        scope:
+            - src/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

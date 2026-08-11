@@ -1,0 +1,1 @@
+None intrinsic to this module; requires the sibling `lib/supabase` client to be configured before screens can authenticate or query data.

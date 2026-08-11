@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: app_source
+title: React Native App Source (Navigation, Screens & Auth)
+scope:
+    - src/
+source_files: []
+depends_on: []
+related_to: []

@@ -1,0 +1,1 @@
+`npm start` / `expo start` launches the dev server; `npm run android|ios|web` target platforms; `eas build` uses the profiles in `eas.json` (development with dev client, preview, production with auto-increment).

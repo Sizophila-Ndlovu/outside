@@ -1,0 +1,1 @@
+Expo-based React Native application entry point that bootstraps the navigation shell and delegates all screens, auth, map, and dashboard logic to the src/ module tree.

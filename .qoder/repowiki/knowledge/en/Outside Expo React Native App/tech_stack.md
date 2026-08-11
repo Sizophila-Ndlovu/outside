@@ -1,0 +1,1 @@
+Expo SDK 54 with React Native 0.81; Supabase client for backend; React Navigation native stack for routing; EAS CLI for cloud builds and submission.
