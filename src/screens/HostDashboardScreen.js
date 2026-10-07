@@ -69,7 +69,10 @@ export default function HostDashboardScreen({ navigation }) {
           title,
           description,
           event_type: 'popup',
-          coordinates: `POINT(${loc.coords.longitude} ${loc.coords.latitude})`,
+          // Explicit SRID. A bare POINT(...) parses as SRID 0, which a
+          // geometry(Point,4326) column rejects, and which makes the
+          // ::geography proximity check in the check-in policy ambiguous.
+          coordinates: `SRID=4326;POINT(${loc.coords.longitude} ${loc.coords.latitude})`,
           location_name: locationName,
           is_live: true,
         })

@@ -94,7 +94,9 @@ export default function VibePopup({ event, onClose }) {
         .insert({
           user_id: userId,
           event_id: event.id,
-          coordinates: `POINT(${loc.coords.longitude} ${loc.coords.latitude})`,
+          // Explicit SRID so the ST_DWithin(::geography) proximity gate in
+          // the RLS policy measures true metres rather than guessing.
+          coordinates: `SRID=4326;POINT(${loc.coords.longitude} ${loc.coords.latitude})`,
         });
       if (error) {
         if (error.code === '23505') {
@@ -117,41 +119,54 @@ export default function VibePopup({ event, onClose }) {
     }
   }
 
-  async function toggleLike(postId, currentLikes) {
+  // like_count is derived from the likes table by a database trigger
+  // (supabase/migrations/...phase7...), so this only ever writes to `likes`.
+  // The UI updates optimistically and rolls back if the write fails.
+  function applyLocalLike(postId, liked, delta) {
+    setLikedPosts(prev => {
+      const next = new Set(prev);
+      if (liked) next.add(postId);
+      else next.delete(postId);
+      return next;
+    });
+    setPosts(prev =>
+      prev.map(p =>
+        p.id === postId
+          ? { ...p, like_count: Math.max(0, (p.like_count ?? 0) + delta) }
+          : p
+      )
+    );
+  }
+
+  async function toggleLike(postId) {
     if (!userId) return;
     const alreadyLiked = likedPosts.has(postId);
+    const delta = alreadyLiked ? -1 : 1;
 
-    if (alreadyLiked) {
-      await supabase
-        .from('likes')
-        .delete()
-        .eq('user_id', userId)
-        .eq('post_id', postId);
-      await supabase
-        .from('posts')
-        .update({ like_count: currentLikes - 1 })
-        .eq('id', postId);
-      setLikedPosts(prev => {
-        const next = new Set(prev);
-        next.delete(postId);
-        return next;
-      });
-      setPosts(posts.map(p =>
-        p.id === postId ? { ...p, like_count: currentLikes - 1 } : p
-      ));
-    } else {
-      await supabase
-        .from('likes')
-        .insert({ user_id: userId, post_id: postId });
-      await supabase
-        .from('posts')
-        .update({ like_count: currentLikes + 1 })
-        .eq('id', postId);
-      setLikedPosts(prev => new Set(prev).add(postId));
-      setPosts(posts.map(p =>
-        p.id === postId ? { ...p, like_count: currentLikes + 1 } : p
-      ));
+    applyLocalLike(postId, !alreadyLiked, delta);
+
+    const { error } = alreadyLiked
+      ? await supabase
+          .from('likes')
+          .delete()
+          .eq('user_id', userId)
+          .eq('post_id', postId)
+      : await supabase
+          .from('likes')
+          .insert({ user_id: userId, post_id: postId });
+
+    if (!error) return;
+
+    if (error.code === '23505') {
+      // Unique violation: local state was stale and the server already had
+      // this like (and its count). Resync from the source of truth instead
+      // of guessing at an adjustment.
+      await fetchPosts();
+      return;
     }
+
+    applyLocalLike(postId, alreadyLiked, -delta);
+    Alert.alert('Could not save like', error.message);
   }
 
   function renderPost({ item }) {
@@ -168,7 +183,7 @@ export default function VibePopup({ event, onClose }) {
         ) : null}
         <TouchableOpacity
           style={styles.likeButton}
-          onPress={() => toggleLike(item.id, item.like_count)}
+          onPress={() => toggleLike(item.id)}
         >
           <Text style={[styles.likeText, liked && styles.likeTextActive]}>
             ♥ {item.like_count}
