@@ -42,6 +42,9 @@ yarn-error.*
 /ios
 /android
 
+# Supabase CLI runtime state (regenerated on demand)
+supabase/.temp/
+
 # NOTE: lib/supabase.js and app.json used to be ignored because they held
 # credentials. They no longer do - all secrets now come from .env via
 # EXPO_PUBLIC_* variables, injected by app.config.js. Both files are
