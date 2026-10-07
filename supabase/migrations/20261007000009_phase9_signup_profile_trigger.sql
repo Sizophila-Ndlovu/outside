@@ -31,6 +31,14 @@ security definer
 set search_path = public
 as $$
 begin
+  -- The live project's public.users.email is NOT NULL, so a signup without
+  -- an email (e.g. phone-only, should that ever be enabled) cannot get a
+  -- profile row. Skip instead of letting the insert abort the signup; the
+  -- app only signs users in by email anyway.
+  if new.email is null then
+    return new;
+  end if;
+
   insert into public.users (id, name, email)
   values (
     new.id,
@@ -44,7 +52,10 @@ begin
     ),
     new.email
   )
-  on conflict (id) do nothing;
+  -- Untargeted: users_email_key is unique too. A re-registration with the
+  -- email of a deleted account (there is no FK from users, so the old row
+  -- survives) must not block the signup.
+  on conflict do nothing;
   return new;
 end;
 $$;
@@ -73,4 +84,8 @@ from auth.users u
 left join public.users p on p.id = u.id
 where p.id is null
   and u.email is not null
-on conflict (id) do nothing;
+-- Untargeted: also skips any row whose email already exists in users
+-- (users_email_key), e.g. a previously deleted account's address, rather
+-- than aborting the whole backfill. The verification count below still
+-- catches anything skipped.
+on conflict do nothing;
