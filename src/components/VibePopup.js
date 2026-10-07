@@ -33,9 +33,77 @@ export default function VibePopup({ event, onClose }) {
   }, []);
 
   useEffect(() => {
-    if (event) fetchPosts();
+    if (!event) return;
+    fetchPosts();
     setCheckinCount(event.live_checkin_count ?? 0);
-  }, [event]);
+
+    // Liveness for the open event. Inserts are prepended, updates (edits and
+    // trigger-driven like_count recomputes) merged in place, and deletes
+    // dropped, instead of refetching - so another person liking a post moves
+    // the number without the feed flickering through a loading spinner.
+    // The events UPDATE subscription pins the check-in count to the server
+    // value, which also self-corrects the optimistic +1 in checkIn().
+    const channel = supabase
+      .channel(`event-${event.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'posts',
+          filter: `event_id=eq.${event.id}`,
+        },
+        payload => {
+          setPosts(prev => [
+            payload.new,
+            ...prev.filter(p => p.id !== payload.new.id),
+          ]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'posts',
+          filter: `event_id=eq.${event.id}`,
+        },
+        payload => {
+          setPosts(prev =>
+            prev.map(p => (p.id === payload.new.id ? payload.new : p))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        // DELETE events under RLS carry only the primary key and cannot be
+        // filtered server-side, so this listens unfiltered and drops the
+        // post id locally instead.
+        { event: 'DELETE', schema: 'public', table: 'posts' },
+        payload => {
+          setPosts(prev => prev.filter(p => p.id !== payload.old.id));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'events',
+          filter: `id=eq.${event.id}`,
+        },
+        payload => {
+          if (typeof payload.new?.live_checkin_count === 'number') {
+            setCheckinCount(payload.new.live_checkin_count);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [event?.id]);
 
   useEffect(() => {
     if (userId && posts.length > 0) fetchUserLikes();

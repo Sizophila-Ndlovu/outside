@@ -21,15 +21,38 @@ export default function MapScreen({ navigation }) {
   }, []);
 
   useEffect(() => {
+    let subscribed = true;
+
     async function fetchEvents() {
       const { data, error } = await supabase
         .from('events')
         .select('*')
         .eq('is_live', true);
       if (error) console.log('Events error:', error);
-      else setEvents(data);
+      else if (subscribed) setEvents(data);
     }
+
     fetchEvents();
+
+    // Liveness: refetch the live-event list whenever any row in `events`
+    // changes - a host goes live, an event ends, or a check-in bumps
+    // live_checkin_count. Refetching the filtered list (rather than patching
+    // local state from the payload) keeps the is_live filter honest for
+    // inserts, updates and deletes alike. Tables must be members of the
+    // supabase_realtime publication; see the phase8 migration.
+    const channel = supabase
+      .channel('map-events')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        fetchEvents
+      )
+      .subscribe();
+
+    return () => {
+      subscribed = false;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (

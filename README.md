@@ -20,7 +20,8 @@ Row Level Security policies are the security boundary.
 - npm
 - A Supabase project — [create one free](https://supabase.com/dashboard)
 - Expo Go on your phone, or an EAS development build
-  (`react-native-maps` needs a dev build; it will not work in a browser)
+  (`react-native-maps` runs in Expo Go on iOS and Android; it will not work in
+  a browser)
 
 ### 2. Install
 
@@ -61,6 +62,7 @@ is the Supabase dashboard → **SQL Editor**, pasting each file in turn:
 5. `...phase5_checkins_and_storage.sql`
 6. `...phase6_checkins_proximity.sql`
 7. `...phase7_like_count_trigger.sql`
+8. `...phase8_realtime.sql`
 
 Or with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 
@@ -162,11 +164,6 @@ database trigger on `auth.users` that creates the profile from
 **Check your auth settings before a beta: this breaks onboarding for every
 signup if confirmation is enabled.**
 
-**Nothing is realtime.** `MapScreen` fetches events once on mount and
-`VibePopup` fetches posts once per open. An event that goes live five minutes
-later does not appear until the app restarts. Supabase Realtime channels are
-the intended fix, and it is the highest-impact change remaining.
-
 **No sign-out and no profile screen.** Once logged in there is no way back to
 the login flow. The `name` collected at registration is never displayed.
 
@@ -222,6 +219,17 @@ is now `~54.0.37` in `package.json`, matching `node_modules`.
 No tests, linting, or CI yet.
 
 ## Recently fixed
+
+**Realtime is in.** `MapScreen` and `VibePopup` subscribe to Supabase Realtime
+`postgres_changes`, and the `phase8` migration publishes `events` and `posts`.
+An event that goes live appears on the map without a restart, ending it removes
+the marker, new posts stream into an open feed, other people's likes move the
+count as they happen, and the check-in count tracks the server — which also
+self-corrects the optimistic increment in `checkIn()`. Delivery honours the
+existing SELECT policies, so no policy changed. `likes` and `checkins` are
+deliberately not published: the aggregates on `posts` and `events` are what
+everyone sees, and the triggers that maintain them (phases 6, 7) make their
+changes visible indirectly.
 
 **Like counts are now server-side.** `like_count` used to be maintained by a
 second client-side `UPDATE` after each write to `likes`, which raced under
