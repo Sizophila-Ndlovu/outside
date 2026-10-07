@@ -156,27 +156,6 @@ These are tracked and understood, not surprises:
 **No sign-out and no profile screen.** Once logged in there is no way back to
 the login flow. The `name` collected at registration is never displayed.
 
-**The map never recenters on you.** `initialRegion` is computed on first
-render while `location` is still `null`, so the map opens on the hardcoded
-Johannesburg fallback and stays there even after GPS resolves. `initialRegion`
-is read once by react-native-maps and never again; recentring needs an
-explicit `animateToRegion` on a map ref. Location permission denial is also
-silent — `MapScreen` just returns without telling the user anything.
-
-**One malformed event row can blank the whole map.** `MapScreen` reads
-`event.coordinates.coordinates[0]` and `[1]` with no guard while rendering
-markers. If any live event has a null or non-GeoJSON `coordinates` value, the
-render throws and the map screen fails entirely rather than skipping that one
-marker. The `events.coordinates` column is `not null` and PostgREST returns
-GeoJSON, so this should not happen with data written by this app — but there is
-no error boundary and no defensive filter, so a hand-edited or legacy row is
-enough to take down the screen. Worth hardening before real users.
-
-**Event fetch failures are invisible.** Both `MapScreen.fetchEvents` and
-`VibePopup.fetchPosts` send errors to `console.log` only. If the query fails,
-users see an empty map or "no posts yet" with no indication anything went
-wrong.
-
 **`MediaTypeOptions.Images` is deprecated but still functional.** Verified
 against the installed expo-image-picker 17.0.11: `parseMediaTypes` in
 `node_modules/expo-image-picker/build/utils.js` still translates the legacy
@@ -208,6 +187,14 @@ is now `~54.0.37` in `package.json`, matching `node_modules`.
 No tests, linting, or CI yet.
 
 ## Recently fixed
+
+**The map screen no longer has silent failure modes.** The first GPS fix
+recentres the map via `animateToRegion` (previously it stayed on the
+Johannesburg fallback forever, because `initialRegion` is only read once),
+location-permission denial and event-load failures surface as banners instead
+of nothing, a malformed `coordinates` row is skipped instead of blanking the
+whole screen, and a failed posts fetch offers tap-to-retry instead of an empty
+"no posts yet".
 
 **Registration can no longer lose the name.** The profile row is now created
 by an `on_auth_user_created` trigger on `auth.users` (phase9), fed by the name

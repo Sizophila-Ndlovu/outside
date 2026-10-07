@@ -18,6 +18,7 @@ const { height } = Dimensions.get('window');
 export default function VibePopup({ event, onClose }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [postsError, setPostsError] = useState(null);
   const [userId, setUserId] = useState(null);
   const [likedPosts, setLikedPosts] = useState(new Set());
   const [checkedIn, setCheckedIn] = useState(false);
@@ -120,8 +121,13 @@ export default function VibePopup({ event, onClose }) {
       .select('*')
       .eq('event_id', event.id)
       .order('created_at', { ascending: false });
-    if (error) console.log('Posts error:', error);
-    else setPosts(data);
+    if (error) {
+      console.log('Posts error:', error);
+      setPostsError(error.message);
+    } else {
+      setPostsError(null);
+      setPosts(data);
+    }
     setLoading(false);
   }
 
@@ -302,7 +308,15 @@ export default function VibePopup({ event, onClose }) {
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.empty}>no posts yet</Text>
+            postsError ? (
+              <TouchableOpacity onPress={fetchPosts}>
+                <Text style={styles.empty}>
+                  couldn't load posts — tap to retry
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.empty}>no posts yet</Text>
+            )
           }
         />
       )}
