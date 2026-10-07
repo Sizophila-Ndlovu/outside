@@ -83,7 +83,8 @@ supabase db pull
 Also confirm in the dashboard that email confirmation is configured the way
 you expect (**Authentication → Sign In / Providers → Email**). If "Confirm
 email" is on, a newly registered user cannot sign in until they click the
-link, and the app does not currently tell them so.
+link — registration now shows a "Confirm your email" notice saying exactly
+that.
 
 ### 5. Google Maps key (Android)
 
@@ -125,10 +126,11 @@ src/
   hooks/useAuth.js           session state via onAuthStateChange
   screens/
     LoginScreen.js           sign in
-    RegisterScreen.js        sign up + create profile row
+    RegisterScreen.js        sign up (profile row comes from a DB trigger)
     MapScreen.js             live map with event markers
     HostDashboardScreen.js   go live, post photos, end event
-  components/VibePopup.js    bottom sheet: feed, likes, check-in
+    ProfileScreen.js         your name, sign out
+  components/VibePopup.js    bottom sheet: feed, post photos, likes, check-in
 supabase/migrations/         numbered, idempotent schema + RLS + storage
 ```
 
@@ -153,16 +155,10 @@ longitude and `coordinates[1]` is latitude.
 
 These are tracked and understood, not surprises:
 
-**No sign-out and no profile screen.** Once logged in there is no way back to
-the login flow. The `name` collected at registration is never displayed.
-
-**`MediaTypeOptions.Images` is deprecated but still functional.** Verified
-against the installed expo-image-picker 17.0.11: `parseMediaTypes` in
-`node_modules/expo-image-picker/build/utils.js` still translates the legacy
-enum to `['images']` and only emits a `console.warn`. Photo posting works
-today. SDK 54 prefers `mediaTypes: ['images']`, and the library's own comment
-says the enum "should [be] remove[d] in [a] future release", so migrate before
-the next SDK bump.
+**Posting is not check-in-gated.** Any authenticated user can post to a live
+event without being near it — the `posts` insert policy (phase3) only requires
+the event to be live. Fine for a beta where trust is assumed; tightening to
+"checked-in users only" is a one-policy change if it ever matters.
 
 **`expo-doctor` reports one remaining failure.** 17 of 18 checks pass; the
 remaining one does not block a beta:
@@ -181,12 +177,20 @@ The former second failure — `expo` 54.0.35 vs the expected `~54.0.37` patch
 version — was fixed on 2026-10-07, after the repo moved off OneDrive: `expo`
 is now `~54.0.37` in `package.json`, matching `node_modules`.
 
-**Attendees cannot post.** Only the host can add photos, from
-`HostDashboardScreen`. `VibePopup` is read-only for everyone else.
-
 No tests, linting, or CI yet.
 
 ## Recently fixed
+
+**You can sign out, see your profile, and post as an attendee.** The map has
+a "profile" button top-right: `ProfileScreen` shows your `users.name` and the
+session email, and signing out returns to the login stack through
+`onAuthStateChange` rather than navigating by hand. `VibePopup` gained an
+"+ add your photo" button — the phase3 policy already allowed any
+authenticated user to post to a live event, and uploads stay confined to the
+poster's own storage folder by the phase5 policy. Both photo pickers now pass
+`mediaTypes: ['images']`, the SDK 54 form, instead of the deprecated
+`MediaTypeOptions` enum. `App.js` mounts `SafeAreaProvider`, so map controls
+and popup padding respect the notch and home indicator on newer iPhones.
 
 **The map screen no longer has silent failure modes.** The first GPS fix
 recentres the map via `animateToRegion` (previously it stayed on the

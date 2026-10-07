@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import VibePopup from '../components/VibePopup';
 
@@ -34,6 +35,7 @@ function pointOf(event) {
 
 export default function MapScreen({ navigation }) {
   const mapRef = useRef(null);
+  const insets = useSafeAreaInsets();
   const [locationDenied, setLocationDenied] = useState(false);
   const [events, setEvents] = useState([]);
   const [eventsError, setEventsError] = useState(null);
@@ -131,7 +133,12 @@ export default function MapScreen({ navigation }) {
           />
         ))}
       </MapView>
-      <View style={styles.bannerStack} pointerEvents="none">
+      {/* Controls sit below the notch/dynamic island; insets.top is 0 on
+          devices without one, so this degrades to a plain offset. */}
+      <View
+        style={[styles.bannerStack, { top: insets.top + 56 }]}
+        pointerEvents="none"
+      >
         {locationDenied && (
           <View style={styles.banner}>
             <Text style={styles.bannerText}>
@@ -148,7 +155,13 @@ export default function MapScreen({ navigation }) {
         )}
       </View>
       <TouchableOpacity
-        style={styles.hostButton}
+        style={[styles.profileButton, { top: insets.top + 8 }]}
+        onPress={() => navigation.navigate('Profile')}
+      >
+        <Text style={styles.profileButtonText}>profile</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.hostButton, { bottom: insets.bottom + 24 }]}
         onPress={() => navigation.navigate('HostDashboard')}
       >
         <Text style={styles.hostButtonText}>+ go live</Text>
@@ -172,7 +185,6 @@ const styles = StyleSheet.create({
   },
   bannerStack: {
     position: 'absolute',
-    top: 60,
     left: 16,
     right: 16,
     gap: 8,
@@ -188,9 +200,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  profileButton: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: 'rgba(26, 26, 26, 0.92)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  profileButtonText: {
+    color: '#ddd',
+    fontSize: 13,
+  },
   hostButton: {
     position: 'absolute',
-    bottom: 40,
     alignSelf: 'center',
     backgroundColor: '#fff',
     paddingVertical: 14,

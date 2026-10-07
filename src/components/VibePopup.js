@@ -1,3 +1,4 @@
+import { decode } from 'base64-arraybuffer';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -11,11 +12,14 @@ import {
   Alert,
 } from 'react-native';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 
 const { height } = Dimensions.get('window');
 
 export default function VibePopup({ event, onClose }) {
+  const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [postsError, setPostsError] = useState(null);
@@ -23,6 +27,7 @@ export default function VibePopup({ event, onClose }) {
   const [likedPosts, setLikedPosts] = useState(new Set());
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [checkinCount, setCheckinCount] = useState(event.live_checkin_count ?? 0);
 
   useEffect(() => {
@@ -243,6 +248,61 @@ export default function VibePopup({ event, onClose }) {
     Alert.alert('Could not save like', error.message);
   }
 
+  // Same flow as the host's pickAndPost in HostDashboardScreen: pick a photo
+  // from the library, upload into the poster's own storage folder (the phase5
+  // policy requires the first path segment to be the user id), then insert
+  // the post row. The phase3 insert policy accepts this from any
+  // authenticated user as long as the event is still live.
+  async function pickAndPost() {
+    if (!userId || posting) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      // Array form; MediaTypeOptions.Images is deprecated in SDK 54 and
+      // internally maps to exactly this.
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+      base64: true,
+    });
+    if (result.canceled) return;
+    setPosting(true);
+    try {
+      const file = result.assets[0];
+      const fileName = `${userId}/${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('posts')
+        .upload(fileName, decode(file.base64), { contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from('posts')
+        .getPublicUrl(fileName);
+      const { data: post, error: postError } = await supabase
+        .from('posts')
+        .insert({
+          event_id: event.id,
+          user_id: userId,
+          caption: null,
+          media_url: urlData.publicUrl,
+          media_type: 'image',
+        })
+        .select()
+        .single();
+      if (postError) throw postError;
+      // Prepend the row the server accepted. The realtime INSERT echo may
+      // land before or after this; the id filter keeps exactly one copy.
+      if (post) {
+        setPosts(prev => [post, ...prev.filter(p => p.id !== post.id)]);
+      }
+    } catch (error) {
+      if (error.code === '42501') {
+        // RLS says the event stopped being live between open and post.
+        Alert.alert('Could not post', 'This event has ended — posting is closed.');
+      } else {
+        Alert.alert('Could not post', error.message);
+      }
+    }
+    setPosting(false);
+  }
+
   function renderPost({ item }) {
     const liked = likedPosts.has(item.id);
     return (
@@ -268,7 +328,7 @@ export default function VibePopup({ event, onClose }) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: 16 + insets.bottom }]}>
       <View style={styles.handle} />
       <View style={styles.header}>
         <View>
@@ -298,6 +358,18 @@ export default function VibePopup({ event, onClose }) {
           )}
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity
+        style={styles.addPhotoButton}
+        onPress={pickAndPost}
+        disabled={posting}
+      >
+        {posting ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={styles.addPhotoText}>+ add your photo</Text>
+        )}
+      </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator color="#fff" style={{ marginTop: 24 }} />
@@ -394,6 +466,18 @@ const styles = StyleSheet.create({
   },
   checkinTextDone: {
     color: '#888',
+  },
+  addPhotoButton: {
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addPhotoText: {
+    color: '#fff',
+    fontSize: 14,
   },
   postCard: {
     marginBottom: 16,

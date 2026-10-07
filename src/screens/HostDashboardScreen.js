@@ -90,7 +90,9 @@ export default function HostDashboardScreen({ navigation }) {
 
   async function pickAndPost() {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      // Array form; MediaTypeOptions.Images is deprecated in SDK 54 and
+      // internally maps to exactly this.
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 0.8,
       base64: true,

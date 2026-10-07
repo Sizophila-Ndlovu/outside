@@ -18,11 +18,9 @@ SDK 55/56. Exact pinned versions that matter:
 | expo-image-picker | ~17.0.11 |
 | expo-location | ~19.0.8 |
 
-SDK 54 note: `ImagePicker.MediaTypeOptions` is deprecated but **not yet
-removed**. In the installed 17.0.11, `parseMediaTypes` still maps the legacy
-enum to `['images']` and only logs a warning, so existing code runs. Prefer the
-array form `mediaTypes: ['images']` in new code; the library comments indicate
-the enum is slated for removal in a future release.
+SDK 54 note: use the array form `mediaTypes: ['images']` with
+`launchImageLibraryAsync`. The legacy `ImagePicker.MediaTypeOptions` enum is
+deprecated and slated for removal; the app no longer uses it anywhere.
 
 ## Architecture facts you cannot infer from the code alone
 
@@ -65,6 +63,18 @@ the `posts` UPDATE policy is author-only, so a non-author cannot write to
 `options.data`. Do not reintroduce a client-side profile insert — with email
 confirmation on there is no session at that point, RLS rejects the write, and
 the name is lost, which is exactly the bug this replaced.
+
+**Any authenticated user may post to a live event** (phase3 insert policy) —
+that is deliberate, and posting is intentionally not check-in-gated. If you
+want to tighten who can post, change the policy; do not fake the gate in the
+UI, since RLS is the only real boundary.
+
+**Realtime delivery rides on the SELECT policies.** `events` and `posts` are
+members of the `supabase_realtime` publication (`phase8`), so
+`postgres_changes` reaches clients; `likes` and `checkins` are deliberately
+not published and their effects surface through the aggregate counters on
+`posts` and `events`. Note that a DELETE payload under RLS carries only the
+primary key and cannot be filtered server-side.
 
 **Commit and push each completed addition.** The owner works solo on `main`.
 After a change is done and checked, commit it (specific files, clear message)

@@ -5,6 +5,7 @@ import MapScreen from '../screens/MapScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HostDashboardScreen from '../screens/HostDashboardScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import useAuth from '../hooks/useAuth';
 
 const Stack = createNativeStackNavigator();
@@ -27,6 +28,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Map" component={MapScreen} />
             <Stack.Screen name="HostDashboard" component={HostDashboardScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : (
           <>
