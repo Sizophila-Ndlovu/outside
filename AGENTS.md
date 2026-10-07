@@ -60,6 +60,12 @@ editing one that may already have been applied.
 the `posts` UPDATE policy is author-only, so a non-author cannot write to
 `posts` even to adjust a count.
 
+**Profiles are created by a trigger, not by the client.** `phase9` installs
+`handle_new_user` on `auth.users`, reading the name from `signUp`'s
+`options.data`. Do not reintroduce a client-side profile insert — with email
+confirmation on there is no session at that point, RLS rejects the write, and
+the name is lost, which is exactly the bug this replaced.
+
 **Commit and push each completed addition.** The owner works solo on `main`.
 After a change is done and checked, commit it (specific files, clear message)
 and push to `origin` — do not leave finished work uncommitted.

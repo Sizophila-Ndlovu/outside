@@ -14,25 +14,28 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      // The profile row is created by the on_auth_user_created trigger
+      // (supabase/migrations/...phase9...) from this metadata, so the name
+      // survives even when email confirmation is on and signUp returns no
+      // session for the client to write with.
+      options: { data: { name } },
+    });
+    setLoading(false);
     if (error) {
       Alert.alert('Error', error.message);
-      setLoading(false);
       return;
     }
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: data.user.id,
-          name: name,
-          email: email,
-          user_type: 'explorer',
-        });
-      if (profileError) console.log('Profile error:', profileError);
+    if (data.session) {
+      Alert.alert('Success', 'Account created.');
+    } else {
+      Alert.alert(
+        'Confirm your email',
+        `We sent a confirmation link to ${email}. Tap it, then sign in.`
+      );
     }
-    setLoading(false);
-    Alert.alert('Success', 'Account created.');
   }
 
   return (

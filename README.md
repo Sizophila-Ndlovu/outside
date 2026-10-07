@@ -63,6 +63,7 @@ is the Supabase dashboard → **SQL Editor**, pasting each file in turn:
 6. `...phase6_checkins_proximity.sql`
 7. `...phase7_like_count_trigger.sql`
 8. `...phase8_realtime.sql`
+9. `...phase9_signup_profile_trigger.sql`
 
 Or with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 
@@ -152,18 +153,6 @@ longitude and `coordinates[1]` is latitude.
 
 These are tracked and understood, not surprises:
 
-**Registration silently fails to create a profile when email confirmation is
-on.** `RegisterScreen` calls `supabase.auth.signUp()` and then inserts into
-`users` as a second, separate client-side write. If "Confirm email" is enabled
-in your Supabase auth settings, `signUp` returns a user but **no session**, so
-`auth.uid()` is null and the profile insert is rejected by RLS. The error is
-only `console.log`'d, so the user sees "Account created", confirms their
-email, signs in — and has no profile row. Their `name` is gone. The fix is a
-database trigger on `auth.users` that creates the profile from
-`raw_user_meta_data`, plus passing the name via `signUp({ options: { data } })`.
-**Check your auth settings before a beta: this breaks onboarding for every
-signup if confirmation is enabled.**
-
 **No sign-out and no profile screen.** Once logged in there is no way back to
 the login flow. The `name` collected at registration is never displayed.
 
@@ -219,6 +208,15 @@ is now `~54.0.37` in `package.json`, matching `node_modules`.
 No tests, linting, or CI yet.
 
 ## Recently fixed
+
+**Registration can no longer lose the name.** The profile row is now created
+by an `on_auth_user_created` trigger on `auth.users` (phase9), fed by the name
+passed as `signUp({ options: { data: { name } } })` — no second client-side
+write, so it works whether or not email confirmation is enabled. Registration
+also now tells the user to confirm their email when `signUp` returns no
+session, instead of leaving them at "Account created" with no way in. The
+migration backfills profiles for accounts created while the bug was live,
+using the email prefix as the name — edit them via the dashboard if needed.
 
 **Realtime is in.** `MapScreen` and `VibePopup` subscribe to Supabase Realtime
 `postgres_changes`, and the `phase8` migration publishes `events` and `posts`.
