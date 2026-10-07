@@ -30,9 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files - secrets stay local, only the template is committed
 .env
-.env*.local
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -41,8 +42,7 @@ yarn-error.*
 /ios
 /android
 
-# Supabase client with credentials
-lib/supabase.js
-
-# I added a mapbox access token in app.json
-app.json
+# NOTE: lib/supabase.js and app.json used to be ignored because they held
+# credentials. They no longer do - all secrets now come from .env via
+# EXPO_PUBLIC_* variables, injected by app.config.js. Both files are
+# tracked so a fresh clone can actually build.
