@@ -21,7 +21,8 @@ Row Level Security policies are the security boundary.
 - A Supabase project — [create one free](https://supabase.com/dashboard)
 - Expo Go on your phone, or an EAS development build
   (`react-native-maps` runs in Expo Go on iOS and Android; it will not work in
-  a browser)
+  a browser). The project targets **Expo SDK 57** — keep Expo Go updated from
+  the App Store or Play Store, which ship SDK 57.
 
 ### 2. Install
 
@@ -64,6 +65,7 @@ is the Supabase dashboard → **SQL Editor**, pasting each file in turn:
 7. `...phase7_like_count_trigger.sql`
 8. `...phase8_realtime.sql`
 9. `...phase9_signup_profile_trigger.sql`
+10. `...phase10_security_hardening.sql`
 
 Or with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 
@@ -110,6 +112,10 @@ npx expo start --clear
 Use `--clear` after any change to `.env`. Environment variables are inlined
 when Metro bundles the app, so a plain hot reload will not pick them up.
 
+If Expo Go says "Project is incompatible with this version of Expo Go",
+update Expo Go from the store — the project tracks the newest SDK (57 as of
+October 2026).
+
 Then press `a` for an Android emulator, `i` for iOS, or scan the QR code with
 Expo Go.
 
@@ -120,6 +126,7 @@ Expo Go.
 ```
 app.json                     non-secret Expo config (tracked)
 app.config.js                merges over app.json, injects secrets from .env
+CHANGELOG.md                 dated record of notable changes
 lib/supabase.js              Supabase client with AsyncStorage session persistence
 src/
   navigation/AppNavigator.js auth-gated native stack
@@ -160,26 +167,47 @@ event without being near it — the `posts` insert policy (phase3) only requires
 the event to be live. Fine for a beta where trust is assumed; tightening to
 "checked-in users only" is a one-policy change if it ever matters.
 
-**`expo-doctor` reports one remaining failure.** 17 of 18 checks pass; the
-remaining one does not block a beta:
+**Live events never expire on their own.** `is_live` flips to false only when
+the host ends the event, so an abandoned event's marker stays on the map
+indefinitely. Two stale test events from June and July 2026 were ended
+manually on 2026-10-08; deciding on an auto-expiry rule is a pre-beta open
+question.
 
-- *Duplicate native module dependencies.* `expo-constants@18.0.13` exists in
-  three places (`expo/`, `expo-auth-session/`, `expo-linking/`). All three are
-  the **same version**, so this is a hoisting artefact rather than a real
-  conflict — but native builds are meant to carry one copy. Note that
-  `expo-auth-session` is declared in `package.json` yet never imported anywhere
-  in the app, and it is what pulls in `expo-linking`; removing it would clear
-  two of the three copies. It is left in place deliberately because it implies
-  planned OAuth sign-in — that is a product decision, not a cleanup.
-  `expo-status-bar` is likewise declared but unused.
+**Sign-in is email/password only.** There is no Google/OAuth flow anywhere in
+the app. `expo-auth-session` is declared in `package.json` but never imported,
+and it is what pulls in `expo-linking`; it is left in place pending a decision
+on social sign-in. `expo-status-bar` is likewise declared but unused.
 
-The former second failure — `expo` 54.0.35 vs the expected `~54.0.37` patch
-version — was fixed on 2026-10-07, after the repo moved off OneDrive: `expo`
-is now `~54.0.37` in `package.json`, matching `node_modules`.
+**`expo-doctor` has not been re-run since the SDK 57 upgrade (2026-10-07).**
+Before the upgrade it passed 17 of 18 checks; the one failure was a duplicate
+native module dependency — `expo-constants` present in three places (`expo/`,
+`expo-auth-session/`, `expo-linking/`), all at the same version, a hoisting
+artefact rather than a real conflict. The SDK 57 `npm install` resolved
+cleanly with no peer-dependency errors; run `npx expo-doctor` to check the
+current state.
 
 No tests, linting, or CI yet.
 
 ## Recently fixed
+
+**The full loop is verified on a real device (2026-10-07/08).** On a physical
+iPhone 11 running Expo Go (SDK 57): register with a name, sign in, go live,
+post a photo, check in, end the event, view the profile, and sign out and
+back in — all confirmed against the live database, including the phase9
+signup profile trigger and the phase10-hardened `increment_checkin_count()`.
+
+**Expo Go works again — SDK 57 upgrade.** The store's Expo Go runs SDK 57
+projects only, so the SDK 54 project failed to open ("Project is incompatible
+with this version of Expo Go"). Dependencies moved to the SDK 57 set — expo
+`~57.0.1` (resolving to `57.0.27`), React `19.2.3`, React Native `0.86.3` —
+and `npm install` resolved cleanly.
+
+**Security hardening (phase10).** `increment_checkin_count()` now runs with a
+pinned `search_path`, and `handle_new_user()` can be executed only by
+`supabase_auth_admin` (GoTrue's signup role) instead of by every role. A
+throwaway signup confirmed the profile trigger still fires. Residual advisor
+findings and why they are accepted are documented in the phase10 migration
+header.
 
 **You can sign out, see your profile, and post as an attendee.** The map has
 a "profile" button top-right: `ProfileScreen` shows your `users.name` and the
@@ -188,7 +216,7 @@ session email, and signing out returns to the login stack through
 "+ add your photo" button — the phase3 policy already allowed any
 authenticated user to post to a live event, and uploads stay confined to the
 poster's own storage folder by the phase5 policy. Both photo pickers now pass
-`mediaTypes: ['images']`, the SDK 54 form, instead of the deprecated
+`mediaTypes: ['images']` (the current array form) instead of the deprecated
 `MediaTypeOptions` enum. `App.js` mounts `SafeAreaProvider`, so map controls
 and popup padding respect the notch and home indicator on newer iPhones.
 

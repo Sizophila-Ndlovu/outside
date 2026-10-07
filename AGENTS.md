@@ -2,23 +2,24 @@
 
 ## Read the versioned docs that match this project
 
-This app is on **Expo SDK 54**. Read
-https://docs.expo.dev/versions/v54.0.0/ before writing any code.
+This app is on **Expo SDK 57**. Read
+https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
 Do not use unversioned or "latest" Expo docs, and do not assume APIs from
-SDK 55/56. Exact pinned versions that matter:
+other SDK versions. The project tracks the newest SDK because that is all the
+store build of Expo Go runs. Exact pinned versions that matter:
 
 | Package | Version |
 | --- | --- |
-| expo | ~54.0.37 |
-| react-native | 0.81.5 |
-| react | 19.1.0 |
+| expo | ~57.0.1 |
+| react-native | 0.86.3 |
+| react | 19.2.3 |
 | @supabase/supabase-js | ^2.107.0 |
-| react-native-maps | 1.20.1 |
-| expo-image-picker | ~17.0.11 |
-| expo-location | ~19.0.8 |
+| react-native-maps | 1.27.2 |
+| expo-image-picker | ~57.0.20 |
+| expo-location | ~57.0.20 |
 
-SDK 54 note: use the array form `mediaTypes: ['images']` with
+Image picker note: use the array form `mediaTypes: ['images']` with
 `launchImageLibraryAsync`. The legacy `ImagePicker.MediaTypeOptions` enum is
 deprecated and slated for removal; the app no longer uses it anywhere.
 
@@ -68,6 +69,12 @@ the name is lost, which is exactly the bug this replaced.
 that is deliberate, and posting is intentionally not check-in-gated. If you
 want to tighten who can post, change the policy; do not fake the gate in the
 UI, since RLS is the only real boundary.
+
+**Events never expire on their own.** `is_live` is set false only when the
+host ends the event; an abandoned event's marker stays on the map forever.
+Stale test events were cleaned up manually on 2026-10-08. Whether to
+auto-expire old live events is an open product decision — do not add one
+silently.
 
 **Realtime delivery rides on the SELECT policies.** `events` and `posts` are
 members of the `supabase_realtime` publication (`phase8`), so
